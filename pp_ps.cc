@@ -131,7 +131,7 @@ int get_cmd(int argc, char** argv)
   // Checking if passing exactly one command
   if(argc != MAX_ARGC_COUNT)
   {
-    fprintf(stderr, "Error: ./pp_ps <command>: No argument '%d'\n", argc);
+    fprintf(stderr, "Error: ./pp_ps <command>: Invalid number of args '%d'\n", argc - 1);
     exit(-1);
   }
 
