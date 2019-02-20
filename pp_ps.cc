@@ -240,6 +240,13 @@ PID parse_line(string line_buffer)
     return tmp_pid;
 }
 
+
+//******************************************************************************
+// Function:      display()
+// Arguments:     vector<PID> p_pid
+//                int cmd_code
+// Description:   Displays to terminal all nessary proc info
+//******************************************************************************
 void display(vector<PID> p_pid, int cmd_code)
 {
   const int LINES_OUTPUT = 50;
@@ -259,49 +266,6 @@ void display(vector<PID> p_pid, int cmd_code)
     "   " << p_pid[i].cpu << "\t" << p_pid[i].mem << "\t" << p_pid[i].VSZ <<
     "\t" << p_pid[i].RSS << "\t" << p_pid[i].cpu_exec << "\n";
   }
-
-/*
-  if(cmd_code == 1)
-  {
-    sort(p_pid.begin(), p_pid.end(), compare_cpu);
-    for(int i = 0; i < p_pid.size(); i++)
-    {
-      cout << p_pid[i].pid << "\t" << p_pid[i].cmd << "\t" << p_pid[i].state <<
-      "   " << p_pid[i].cpu << "\t" << p_pid[i].mem << "\t" << p_pid[i].VSZ <<
-      "\t" << p_pid[i].RSS << "\t" << p_pid[i].cpu_exec << "\n";
-    }
-  }
-  if(cmd_code == 2)
-  {
-    sort(p_pid.begin(), p_pid.end(), compare_mem);
-    for(int i = 0; i < p_pid.size(); i++)
-    {
-      cout << p_pid[i].pid << "\t" << p_pid[i].cmd << "\t" << p_pid[i].state <<
-      "   " << p_pid[i].cpu << "\t" << p_pid[i].mem << "\t" << p_pid[i].VSZ <<
-      "\t" << p_pid[i].RSS << "\t" << p_pid[i].cpu_exec << "\n";
-    }
-  }
-  if(cmd_code == 3)
-  {
-    sort(p_pid.begin(), p_pid.end(), compare_pid);
-    for(int i = 0; i < p_pid.size(); i++)
-    {
-      cout << p_pid[i].pid << "\t" << p_pid[i].cmd << "\t" << p_pid[i].state <<
-      "   " << p_pid[i].cpu << "\t" << p_pid[i].mem << "\t" << p_pid[i].VSZ <<
-      "\t" << p_pid[i].RSS << "\t" << p_pid[i].cpu_exec << "\n";
-    }
-  }
-  if(cmd_code == 4)
-  {
-    sort(p_pid.begin(), p_pid.end(), compare_cmd);
-    for(int i = 0; i < p_pid.size(); i++)
-    {
-      cout << p_pid[i].pid << "\t" << p_pid[i].cmd << "\t" << p_pid[i].state <<
-      "   " << p_pid[i].cpu << "\t" << p_pid[i].mem << "\t" << p_pid[i].VSZ <<
-      "\t" << p_pid[i].RSS << "\t" << p_pid[i].cpu_exec << "\n";
-    }
-  }
-  */
 }
 
 //******************************************************************************
@@ -311,7 +275,8 @@ void display(vector<PID> p_pid, int cmd_code)
 // Description:   To run the main of the program, diving into that proc folder
 //                kappa
 //******************************************************************************
-int main(int argc, char** argv) {
+int main(int argc, char** argv)
+{
   // Nessary Variables
   string PROC             = "/proc";
   string uptime           = "uptime";
@@ -342,7 +307,6 @@ int main(int argc, char** argv) {
     while ((ent = readdir (dir)) != NULL)
     {
       // Directory ed->d_name
-      //cout << ent -> d_name << endl;
       if(uptime.compare(ent -> d_name) == 0)
       {
         char tmp[255];
@@ -360,7 +324,6 @@ int main(int argc, char** argv) {
           iss >> tmp_;
           if(i == 1)
           {
-            //cout << tmp_ << endl;
             uptime_val = stold(tmp_);
           }
           i++;
@@ -395,14 +358,13 @@ int main(int argc, char** argv) {
           long double process_time = (process.utime / sysconf(_SC_CLK_TCK) ) + ( process.stime / sysconf(_SC_CLK_TCK) );
           process.cpu = process_time * 100.0 /real_time;
 
-          //printf("%.6f\n", process.mem);
-          //cout << process.cpu << endl;
-          //printf("%Le\n", process.cpu);
+          // Pushing the process on the vector of type struct
           p_pid.push_back(process);
           free(line_buffer);
         }
       }
     }
+    // Display the vector
     display(p_pid, cmd_code);
     closedir (dir);
   }
@@ -412,8 +374,5 @@ int main(int argc, char** argv) {
     perror("Error: Unable to open directory");
     exit(-1);
   }
-
-  //display();
-
   return 0;
 }
