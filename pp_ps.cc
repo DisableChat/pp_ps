@@ -260,10 +260,13 @@ void display(vector<PID> p_pid, int cmd_code)
   else if(cmd_code == 3){sort(p_pid.begin(), p_pid.end(), compare_pid);}
   else if(cmd_code == 4){sort(p_pid.begin(), p_pid.end(), compare_cmd);}
 
+  cout << "PID\tCommand\tState  %CPU\t%Mem\tVSZ\tRSS\tCore" << endl;
+  cout << "--------------------------------------------------------------" <<
+  "---------------------------------------------------------" << endl;
   for(int i = 0; i < p_pid.size(); i++)
   {
     cout << p_pid[i].pid << "\t" << p_pid[i].cmd << "\t" << p_pid[i].state <<
-    "   " << p_pid[i].cpu << "\t" << p_pid[i].mem << "\t" << p_pid[i].VSZ <<
+    "      " << p_pid[i].cpu << "\t" << p_pid[i].mem << "\t" << p_pid[i].VSZ <<
     "\t" << p_pid[i].RSS << "\t" << p_pid[i].cpu_exec << "\n";
   }
 }
