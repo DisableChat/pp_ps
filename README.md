@@ -6,7 +6,7 @@ Prints to terminal with info from proc directory one time regarding processes st
 ### Commands
 ```
 ./pp_ps <arg>
-where arg -> single argument [-cpu|-mem|-pid|-com]
+where arg = [-cpu|-mem|-pid|-com]
 ```
 
 ## pp_ps/pp_top
@@ -15,5 +15,5 @@ Continously updates terminal with info from proc directory regarding processes s
 ### Commands
 ```
 ./pp_top <arg>
-where -> arg [-cpu|-mem|-pid|-com]
+where arg = [-cpu|-mem|-pid|-com]
 ```	
