@@ -17,6 +17,8 @@
 #include <math.h>
 #include <unistd.h>
 #include <iomanip>
+#include <curses.h>
+#include <sys/ioctl.h>
 using namespace std;
 
 int const PROC_TYPE           = 4;
@@ -24,6 +26,10 @@ int const MAX_ARGC_COUNT      = 2;
 int const ARG_POS             = 1;
 
 
+void ClearScreen()
+{
+  cout << string( 100, '\n' );
+}
 
 //******************************************************************************
 // Struct:        PID
@@ -160,10 +166,11 @@ int get_cmd(int argc, char** argv)
 //******************************************************************************
 // Function:      parse_line()
 // Arguments:     string line_buffer
+//                size_t running_processess
 // Description:   Parses the /proc/<pid>/stat info and then inserts corrosponding
 //                struct attributes. Returning the struct itself when finished
 //******************************************************************************
-PID parse_line(string line_buffer)
+PID parse_line(string line_buffer, size_t &running_processes)
 {
     int index = 1;
     PID tmp_pid;
@@ -204,6 +211,7 @@ PID parse_line(string line_buffer)
       else if(index == 3)
       {
         tmp_pid.state = tmp[0];
+        if(tmp_pid.state == 'R'){running_processes++;}
         //cout << tmp_pid.state << endl;
       }
       else if(index == 14)
@@ -242,12 +250,34 @@ PID parse_line(string line_buffer)
 
 
 //******************************************************************************
+// Function:      display_top()
+// Arguments:     vector<PID> p_pid
+//                int cmd_code
+// Description:   Displays to terminal all nessary proc info for top section
+//******************************************************************************
+void display_top(vector<PID> p_pid, size_t total_processes,
+                                size_t running_processes,
+                                long phys_mem_size,
+                                long double cpu_total)
+{
+  cout << "========================================================" <<
+  "===============================================================" << endl;
+  cout << "(" << total_processes << " total no. processes | "
+  << running_processes << " processes running | "
+  << phys_mem_size << " physical memory | "
+  << cpu_total << " total % CPU)" << endl;
+  cout << "--------------------------------------------------------------" <<
+  "---------------------------------------------------------" << endl;
+
+}
+
+//******************************************************************************
 // Function:      display()
 // Arguments:     vector<PID> p_pid
 //                int cmd_code
 // Description:   Displays to terminal all nessary proc info
 //******************************************************************************
-void display(vector<PID> p_pid, int cmd_code)
+void display(vector<PID> p_pid, int cmd_code, int length)
 {
   const int LINES_OUTPUT = 50;
 
@@ -261,10 +291,11 @@ void display(vector<PID> p_pid, int cmd_code)
   else if(cmd_code == 4){sort(p_pid.begin(), p_pid.end(), compare_cmd);}
 
   cout << "PID\tCommand\tState  %CPU\t%Mem\tVSZ\tRSS\tCore" << endl;
-  cout << "--------------------------------------------------------------" <<
-  "---------------------------------------------------------" << endl;
-  for(int i = 0; i < p_pid.size(); i++)
+  cout << "========================================================" <<
+  "===============================================================" << endl;
+  for(int i = 0; i < length; i++)
   {
+    //if(i % 60 == 0){usleep(1000000);}
     cout << p_pid[i].pid << "\t" << p_pid[i].cmd << "\t" << p_pid[i].state <<
     "      " << p_pid[i].cpu << "\t" << p_pid[i].mem << "\t" << p_pid[i].VSZ <<
     "\t" << p_pid[i].RSS << "\t" << p_pid[i].cpu_exec << "\n";
@@ -280,102 +311,135 @@ void display(vector<PID> p_pid, int cmd_code)
 //******************************************************************************
 int main(int argc, char** argv)
 {
-  // Nessary Variables
-  string PROC             = "/proc";
-  string uptime           = "uptime";
-  long double uptime_val  = 0;
-  string cmd              = "";
   int cmd_code            = 0;
-  int pid;
-  int read;
-
-  // Vector holding type struct (PID)
-  vector<PID> p_pid;
-
-  // Pointers
-  struct dirent *ent;
-  DIR           *dir;
-  FILE          *fp;
-
-  // Available mem
-  long phys_pages = sysconf(_SC_PHYS_PAGES);
-  long page_size = sysconf(_SC_PAGE_SIZE);
-  long phys_mem_size = phys_pages * page_size;
-
+  string cmd              = "";
   cmd_code = get_cmd(argc, argv);
-  dir = opendir ("/proc");
-  if (dir != NULL)
+
+  while(1)
   {
-    // print all the pid's within /proc
-    while ((ent = readdir (dir)) != NULL)
+    struct winsize w;
+    ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
+    int length  = w.ws_row - 6;
+
+    // Nessary Variables
+    string PROC             = "/proc";
+    string uptime           = "uptime";
+    long double uptime_val  = 0;
+    int pid;
+    int read;
+
+    size_t running_processes = 0;
+
+    // Vector holding type struct (PID)
+    vector<PID> p_pid;
+
+    // Pointers
+    struct dirent *ent;
+    DIR           *dir;
+    FILE          *fp;
+
+    // Available mem
+    long phys_pages = sysconf(_SC_PHYS_PAGES);
+    long page_size = sysconf(_SC_PAGE_SIZE);
+    long phys_mem_size = phys_pages * page_size;
+
+    dir = opendir ("/proc");
+
+    size_t total_processes  = 0;
+    long double cpu_total   = 0;
+
+    if (dir != NULL)
     {
-      // Directory ed->d_name
-      if(uptime.compare(ent -> d_name) == 0)
+      // print all the pid's within /proc
+      while ((ent = readdir (dir)) != NULL)
       {
-        char tmp[255];
-        char* line_buffer = NULL;
-        size_t  blength;
-        sprintf(tmp, "/proc/%s", "uptime");
-        fp = fopen(tmp, "r");
-        getline(&line_buffer, &blength, fp);
-        int i = 1;
-        string tmp_;
-        istringstream iss(line_buffer);
-
-        while(iss){
+        pid = atoi(ent -> d_name);
+        // Directory ed->d_name this is for the proc/uptime info
+        if(uptime.compare(ent -> d_name) == 0)
+        {
+          char tmp[255];
+          char* line_buffer = NULL;
+          size_t  blength;
+          sprintf(tmp, "/proc/%s", "uptime");
+          fp = fopen(tmp, "r");
+          getline(&line_buffer, &blength, fp);
+          int i = 1;
           string tmp_;
-          iss >> tmp_;
-          if(i == 1)
-          {
-            uptime_val = stold(tmp_);
+          istringstream iss(line_buffer);
+
+          // Converting the uptime to long double for calculations
+          while(iss){
+            string tmp_;
+            iss >> tmp_;
+            if(i == 1)
+            {
+              uptime_val = stold(tmp_);
+            }
+            i++;
           }
-          i++;
+          fclose(fp);
         }
-        fclose(fp);
-      }
-      pid = atoi(ent -> d_name);
-      if((ent -> d_type == PROC_TYPE) && (pid > 0))
-      {
-        char tmp[255];
-        char* line_buffer = NULL;
-        size_t  blength;
-
-        // Directory ed->d_name
-        sprintf(tmp, "/proc/%d/stat", pid);
-        // Open stat file of current pid
-        fp = fopen(tmp, "r");
-        if(!fp)
+        // Now we find all the process ID's
+        else if((ent -> d_type == PROC_TYPE) && (pid > 0))
         {
-          fprintf(stderr, "Error: can't open file %s\n", tmp);
-          exit(-1);
-        }
-        while( (read = getline(&line_buffer, &blength, fp)) != -1)
-        {
-          //printf("Line: %s\n", line_buffer);
-          PID process;
-          process = parse_line(line_buffer);
+          char tmp[255];
+          char* line_buffer = NULL;
+          size_t  blength;
 
-          process.mem = ((process.RSS * getpagesize() * 100.0) / phys_mem_size);
-          long double real_time;
-          real_time = uptime_val - (process.starttime/sysconf(_SC_CLK_TCK));
-          long double process_time = (process.utime / sysconf(_SC_CLK_TCK) ) + ( process.stime / sysconf(_SC_CLK_TCK) );
-          process.cpu = process_time * 100.0 /real_time;
+          // Directory ed->d_name
+          sprintf(tmp, "/proc/%d/stat", pid);
+          // Open stat file of current pid
+          fp = fopen(tmp, "r");
+          if(!fp)
+          {
+            fprintf(stderr, "Error: can't open file %s\n", tmp);
+            exit(-1);
+          }
+          while( (read = getline(&line_buffer, &blength, fp)) != -1)
+          {
+            // Declaring a struct PID
+            PID process;
+            // Parsing the info so we can insert corrosponding attributes to the
+            // object
+            process= parse_line(line_buffer, running_processes);
 
-          // Pushing the process on the vector of type struct
-          p_pid.push_back(process);
-          free(line_buffer);
+            // Calculating process mem percentage
+            process.mem = ((process.RSS * getpagesize() * 100.0) / phys_mem_size);
+            long double real_time;
+            // Clalcuating real time
+            real_time = uptime_val - (process.starttime/sysconf(_SC_CLK_TCK));
+            long double process_time = (process.utime / sysconf(_SC_CLK_TCK) ) + (process.stime / sysconf(_SC_CLK_TCK));
+            // Setting each object's cpu percentage
+            process.cpu = process_time * 100.0 /real_time;
+            // Calculating total cpu percentage from all processes
+            cpu_total += process.cpu;
+            // Calculating total processes
+            total_processes = p_pid.size();
+            total_processes += 1;
+            // Pushing the process on the vector of type struct
+            p_pid.push_back(process);
+            free(line_buffer);
+          }
+          // Close each process file directory we are in
+          fclose(fp);
         }
       }
+      // Close the Proc Directory
+      closedir (dir);
+      // Displaying info to terminal
+      display_top(p_pid, total_processes, running_processes, phys_mem_size, cpu_total);
+      display(p_pid, cmd_code, length);
+      // Sleep for 1 second
+      usleep(1000000);
+      // Clear screen so we can print over top of each call
+      system("clear");
     }
-    // Display the vector
-    display(p_pid, cmd_code);
-    closedir (dir);
-  }
-  else
-  {
-    // Could not open directory
-    perror("Error: Unable to open directory");
-    exit(-1);
+    else
+    {
+      // Could not open directory
+      perror("Error: Unable to open directory");
+      exit(-1);
+    }
   }
   return 0;
 }
